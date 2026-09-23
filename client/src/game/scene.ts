@@ -36,9 +36,11 @@ function makeLeaf(scene: Scene, parent: AbstractMesh, angle: number, scale: numb
 export async function createGameScene(engine: Engine, _canvas: HTMLCanvasElement): Promise<GameHandle> {
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0.13, 0.2, 0.19, 0);
-  const camera = new ArcRotateCamera("habitat-camera", -Math.PI / 2, 1.18, 5.7, new Vector3(0, 0.2, 0), scene);
+  // 대상점을 위로 올려 정원이 화면 아래쪽에 놓이게 한다 — 가운데 안내 문구와 겹치지 않도록
+  const CAMERA_RADIUS = 6.3;
+  const camera = new ArcRotateCamera("habitat-camera", -Math.PI / 2, 1.18, CAMERA_RADIUS, new Vector3(0, 0.62, 0), scene);
   camera.fov = 0.72;
-  camera.lowerRadiusLimit = camera.upperRadiusLimit = 5.7;
+  camera.lowerRadiusLimit = camera.upperRadiusLimit = CAMERA_RADIUS;
   camera.lowerBetaLimit = camera.upperBetaLimit = 1.18;
   camera.detachControl();
 
@@ -108,11 +110,13 @@ export async function createGameScene(engine: Engine, _canvas: HTMLCanvasElement
   let level = lastGrowth()?.level ?? 1;
   const applyGrowth = (detail: GrowthDetail) => {
     level = detail.level;
-    const scale = Math.min(1.34, 0.92 + level * 0.09);
+    // 레벨이 올라도 플랫폼 밖으로 넘치지 않게 완만하게 키우고 상한을 둔다
+    const scale = Math.min(1.14, 0.88 + level * 0.04);
     root.scaling = new Vector3(scale, scale * 1.08, scale * 0.82);
     leaves.forEach((leaf, index) => { leaf.isVisible = index < Math.min(leaves.length, level + 1); });
     glow.intensity = 1.2 + level * 0.18;
-    ring.scaling = new Vector3(1 + level * 0.035, 1 + level * 0.035, 1 + level * 0.035);
+    const ringScale = 1 + Math.min(level, 8) * 0.025;
+    ring.scaling = new Vector3(ringScale, ringScale, ringScale);
   };
   applyGrowth({ level, stage: "" });
 
