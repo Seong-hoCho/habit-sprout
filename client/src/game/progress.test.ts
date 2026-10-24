@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { addDays, dayStreak, growthFromXp, habitStreak, totalXp, weekRate, xpForLevel, xpOnDay, type DashHabit } from "./progress";
+import { addDays, dayStreak, growthFromXp, habitStreak, totalXp, weekRate, xpForLevel, xpOnDay, type Habit } from "./progress";
 
 const T = "2026-09-23";
-const h = (id: string, days: string[]): DashHabit => ({ id, name: id, log: Object.fromEntries(days.map((d) => [d, true])) });
+const h = (id: string, days: string[]): Habit => ({ id, name: id, log: Object.fromEntries(days.map((d) => [d, true])) });
 
 describe("levels", () => {
   it("thresholds grow by 100·L", () => {

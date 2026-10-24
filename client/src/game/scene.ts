@@ -106,7 +106,7 @@ export async function createGameScene(engine: Engine, _canvas: HTMLCanvasElement
     return orb;
   });
 
-  // 레벨은 대시보드 습관 기록에서 React가 계산해 보낸 값만 쓴다(자체 저장 없음)
+  // 레벨은 습관 기록에서 React가 계산해 보낸 값만 쓴다(장면 자체 저장 없음)
   let level = lastGrowth()?.level ?? 1;
   const applyGrowth = (detail: GrowthDetail) => {
     level = detail.level;

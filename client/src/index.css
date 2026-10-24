@@ -191,12 +191,17 @@ h1 em, h2 em { color: var(--butter); font-style: italic; }
 @media (max-width: 960px) { .dashboard { grid-template-columns: minmax(270px, 330px) 1fr; } .right-rail { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; border-left: 0; border-top: 1px solid var(--line); } .right-rail > * { margin: 0; } }
 @media (max-width: 680px) { .topbar { height: 67px; padding: 0 18px; } .brand-kicker, .icon-button { display: none; } .dashboard { display: block; } .sidebar { padding: 28px 20px; } .left-rail { border-right: 0; } .habitat-stage { min-height: 450px; padding: 27px 20px 24px; } .stage-copy { margin-top: 32px; } .stage-spacer { min-height: 170px; } .game-canvas { position: absolute; top: 640px; height: 420px; opacity: .82; } .right-rail { display: block; padding: 20px; } .right-rail > * + * { margin-top: 12px; } .growth-card { display: grid; grid-template-columns: 1fr 1fr; align-items: center; } .growth-card-header, .growth-name-row, .growth-track, .growth-next { grid-column: 1 / -1; } .companion-wrap { grid-column: 1 / -1; } .stats-card, .quote-card { margin-top: 12px; } }
 
-/* ── 대시보드 연동 추가분 ── */
-.dash-link { display: inline-flex; align-items: center; gap: 4px; padding: 7px 11px; border: 1px solid rgba(247,242,232,.25); border-radius: 999px; color: var(--cream); font-size: 12px; font-weight: 600; text-decoration: none; transition: background 160ms ease; }
-.dash-link:hover { background: rgba(247,242,232,.1); }
-a.add-habit, a.primary-button { text-decoration: none; }
-a.primary-button { display: inline-block; margin-top: 8px; }
-.habit-card:disabled { cursor: progress; opacity: .7; }
+/* ── 습관 편집·빈 정원 ── */
+.habit-card.editing { cursor: default; }
+.habit-card.editing:hover { transform: none; }
+.habit-remove { width: 22px; height: 22px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(247,242,232,.18); border-radius: 50%; color: #e3b0a0; background: transparent; cursor: pointer; }
+.habit-remove:hover { color: #ffd5c7; border-color: rgba(255,213,199,.5); }
+.habit-form { display: flex; gap: 8px; align-items: center; margin-top: 14px; }
+.habit-input { flex: 1; min-width: 0; padding: 9px 12px; border: 1px solid rgba(247,242,232,.18); border-radius: 11px; color: var(--cream); background: rgba(247,242,232,.06); font: inherit; font-size: 13px; }
+.habit-input::placeholder { color: #8fa192; }
+.habit-input:focus { outline: 2px solid rgba(219,191,115,.55); outline-offset: 1px; }
+.habit-form .primary-button { margin-top: 0; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.primary-button:disabled { opacity: .5; cursor: default; }
 .sync-note { margin: 14px 0 0 3px; color: #91a497; font-size: 11px; line-height: 1.5; }
 .empty-garden { padding: 22px; border: 1px dashed rgba(247,242,232,.2); border-radius: 18px; background: rgba(247,242,232,.04); }
 .empty-garden h2 { margin: 10px 0 12px; color: var(--cream); font: 500 24px/1.15 "DM Serif Display", Georgia, serif; }

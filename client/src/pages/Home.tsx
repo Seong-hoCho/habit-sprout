@@ -1,22 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
-  ArrowUpRight,
   BookOpen,
   Check,
   ChevronRight,
   Flame,
   Leaf,
   Moon,
+  Plus,
   Sparkles,
   SunMedium,
   Target,
+  Trash2,
   Trophy,
   Waves,
   Wind,
 } from "lucide-react";
 import GameCanvas from "@/components/GameCanvas";
 import { characters, portraitUrl } from "@/game/characters";
-import { readHabits, refreshFromRemote, toggleHabitOn, DASH_KEY, type SyncStatus } from "@/game/dashboardStore";
+import { addHabit, readHabits, removeHabit, toggleToday, NAME_MAX, STORE_KEY, type SaveResult } from "@/game/habitStore";
 import { emitGrowth } from "@/game/events";
 import {
   addDays,
@@ -29,17 +30,16 @@ import {
   xpOnDay,
   ymd,
   XP_PER_CHECK,
-  type DashHabit,
+  type Habit,
 } from "@/game/progress";
 
 const DEMO_MODE = new URLSearchParams(window.location.search).has("demo");
-const DASHBOARD_URL = "/daily-dashboard.html";
 
 const ICONS = [Waves, SunMedium, Wind, BookOpen, Moon];
 const TONES = ["aqua", "sun", "mint", "lavender", "night"];
 const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
 
-function demoHabits(today: string): DashHabit[] {
+function demoHabits(today: string): Habit[] {
   const past = (n: number, skip: number[] = []) =>
     Object.fromEntries(
       Array.from({ length: n }, (_, i) => i + 1)
@@ -54,34 +54,24 @@ function demoHabits(today: string): DashHabit[] {
   ];
 }
 
-const SYNC_TEXT: Record<SyncStatus, string> = {
-  local: "이 기기의 대시보드에 저장됨",
-  synced: "대시보드에 저장 · 다른 기기와 동기화됨",
-  offline: "동기화 서버에 연결 못 함 · 이 기기 기록으로 표시 중",
-  pending: "이 기기에 저장됨 · 동기화는 대시보드를 열 때 이어서 진행",
-};
-
 export default function Home() {
   const [today, setToday] = useState(() => ymd(new Date()));
-  const [habits, setHabits] = useState<DashHabit[]>(() => (DEMO_MODE ? demoHabits(ymd(new Date())) : readHabits()));
+  const [habits, setHabits] = useState<Habit[]>(() => (DEMO_MODE ? demoHabits(ymd(new Date())) : readHabits()));
   const [activeTab, setActiveTab] = useState<"today" | "collection">("today");
   const [celebrate, setCelebrate] = useState<string | null>(null);
-  const [sync, setSync] = useState<SyncStatus | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saveFailed, setSaveFailed] = useState(false);
 
   const reload = useCallback(() => {
     if (!DEMO_MODE) setHabits(readHabits());
   }, []);
 
-  // 원격이 더 최신이면 받아오고, 다른 탭(대시보드)의 변경·날짜 변경을 따라간다
+  // 같은 게임을 연 다른 탭의 변경과 날짜 변경을 따라간다
   useEffect(() => {
     if (DEMO_MODE) return;
-    refreshFromRemote().then((s) => {
-      setSync(s);
-      reload();
-    });
     const onStorage = (e: StorageEvent) => {
-      if (e.key === DASH_KEY) reload();
+      if (e.key === STORE_KEY) reload();
     };
     const onVisible = () => {
       if (document.visibilityState === "visible") {
@@ -115,12 +105,16 @@ export default function Home() {
     emitGrowth({ level: growth.level, stage: growth.stage, todayDone: completedCount, todayTotal: habits.length });
   }, [growth.level, growth.stage, completedCount, habits.length]);
 
-  async function toggleHabit(habit: DashHabit) {
-    if (busy) return;
+  // 데모는 저장소를 건드리지 않고 화면 상태만 바꾼다
+  function commit(r: SaveResult) {
+    setHabits(r.habits);
+    setSaveFailed(!r.saved);
+  }
+
+  function toggleHabit(habit: Habit) {
     const wasDone = !!habit.log[today];
     const before = growth.level;
 
-    // 화면은 바로 반영하고, 저장은 대시보드 규칙대로 뒤에서 처리
     const optimistic = habits.map((h) => {
       if (h.id !== habit.id) return h;
       const log = { ...h.log };
@@ -128,7 +122,8 @@ export default function Home() {
       else log[today] = true;
       return { ...h, log };
     });
-    setHabits(optimistic);
+    if (DEMO_MODE) setHabits(optimistic);
+    else commit(toggleToday(habit.id, today));
 
     if (!wasDone) {
       const after = growthFromXp(totalXp(optimistic)).level;
@@ -144,17 +139,21 @@ export default function Home() {
     } else {
       setCelebrate(null);
     }
+  }
 
-    if (DEMO_MODE) return;
-    setBusy(habit.id);
-    try {
-      setSync(await toggleHabitOn(habit.id, today));
-    } catch {
-      setCelebrate("저장하지 못했어요. 대시보드에서 습관이 지워졌는지 확인해 주세요.");
-    } finally {
-      setBusy(null);
-      reload();
-    }
+  function submitHabit(e: FormEvent) {
+    e.preventDefault();
+    const name = draft.trim().slice(0, NAME_MAX);
+    if (!name) return;
+    if (DEMO_MODE) setHabits((hs) => [...hs, { id: `d${Date.now()}`, name, log: {} }]);
+    else commit(addHabit(name));
+    setDraft("");
+  }
+
+  function deleteHabit(habit: Habit) {
+    if (!window.confirm(`'${habit.name}' 습관과 그 기록을 지울까요? 이 습관으로 모은 XP도 빠져요.`)) return;
+    if (DEMO_MODE) setHabits((hs) => hs.filter((h) => h.id !== habit.id));
+    else commit(removeHabit(habit.id));
   }
 
   const mood = !habits.length
@@ -176,7 +175,7 @@ export default function Home() {
           <div className="brand-mark"><Leaf size={18} strokeWidth={2.4} /></div>
           <div>
             <p className="brand-name">habit sprout</p>
-            <p className="brand-kicker">대시보드 습관으로 자라는 정원</p>
+            <p className="brand-kicker">습관으로 자라는 정원</p>
           </div>
         </div>
         <div className="topbar-actions">
@@ -184,7 +183,6 @@ export default function Home() {
             <Flame size={15} fill="currentColor" />
             <span><b>{streak}</b>일 연속</span>
           </div>
-          <a className="dash-link" href={DASHBOARD_URL}>대시보드 <ArrowUpRight size={14} /></a>
         </div>
       </header>
 
@@ -203,52 +201,77 @@ export default function Home() {
           </div>
 
           {activeTab === "today" ? (
-            habits.length ? (
-              <>
-                <div className="today-summary">
-                  <div className="summary-line"><span>오늘의 습관</span><strong>{completedCount}<small> / {habits.length}</small></strong></div>
-                  <div className="progress-track"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
-                  <div className="summary-meta"><span>{progress === 100 ? "모두 피어났어요 · 보너스 +20" : "천천히, 하나씩"}</span><span>오늘 +{todayXp} XP</span></div>
-                </div>
+            <>
+              {habits.length ? (
+                <>
+                  <div className="today-summary">
+                    <div className="summary-line"><span>오늘의 습관</span><strong>{completedCount}<small> / {habits.length}</small></strong></div>
+                    <div className="progress-track"><div className="progress-fill" style={{ width: `${progress}%` }} /></div>
+                    <div className="summary-meta"><span>{progress === 100 ? "모두 피어났어요 · 보너스 +20" : "천천히, 하나씩"}</span><span>오늘 +{todayXp} XP</span></div>
+                  </div>
 
-                <div className="habit-list">
-                  {habits.map((habit, i) => {
-                    const done = !!habit.log[today];
-                    const Icon = ICONS[i % ICONS.length];
-                    const hs = habitStreak(habit, today);
-                    return (
-                      <button
-                        key={habit.id}
-                        className={`habit-card ${done ? "done" : ""}`}
-                        onClick={() => toggleHabit(habit)}
-                        aria-pressed={done}
-                        disabled={busy === habit.id}
-                      >
-                        <span className={`habit-icon ${TONES[i % TONES.length]}`}><Icon size={18} strokeWidth={2.2} /></span>
-                        <span className="habit-copy"><strong>{habit.name}</strong><small>{hs ? `${hs}일째 이어가는 중` : "오늘 첫 칸을 채워 보세요"}</small></span>
-                        <span className="habit-xp">+{XP_PER_CHECK}<small>XP</small></span>
-                        <span className="check-circle">{done ? <Check size={15} strokeWidth={3} /> : null}</span>
-                      </button>
-                    );
-                  })}
+                  <div className="habit-list">
+                    {habits.map((habit, i) => {
+                      const done = !!habit.log[today];
+                      const Icon = ICONS[i % ICONS.length];
+                      const hs = habitStreak(habit, today);
+                      const icon = <span className={`habit-icon ${TONES[i % TONES.length]}`}><Icon size={18} strokeWidth={2.2} /></span>;
+                      return editing ? (
+                        <div key={habit.id} className="habit-card editing">
+                          {icon}
+                          <span className="habit-copy"><strong>{habit.name}</strong><small>체크 {Object.keys(habit.log).length}번</small></span>
+                          <span />
+                          <button className="habit-remove" onClick={() => deleteHabit(habit)} aria-label={`${habit.name} 지우기`} title="지우기"><Trash2 size={14} /></button>
+                        </div>
+                      ) : (
+                        <button
+                          key={habit.id}
+                          className={`habit-card ${done ? "done" : ""}`}
+                          onClick={() => toggleHabit(habit)}
+                          aria-pressed={done}
+                        >
+                          {icon}
+                          <span className="habit-copy"><strong>{habit.name}</strong><small>{hs ? `${hs}일째 이어가는 중` : "오늘 첫 칸을 채워 보세요"}</small></span>
+                          <span className="habit-xp">+{XP_PER_CHECK}<small>XP</small></span>
+                          <span className="check-circle">{done ? <Check size={15} strokeWidth={3} /> : null}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                <div className="empty-garden">
+                  <p className="eyebrow">아직 심은 씨앗이 없어요</p>
+                  <h2>첫 습관을<br /><em>심어 보세요</em></h2>
+                  <p>체크할 때마다 정원이 자라요. 기록은 이 브라우저에만 저장돼요.</p>
                 </div>
-                {!DEMO_MODE && sync && <p className="sync-note">{SYNC_TEXT[sync]}</p>}
-                <a className="add-habit" href={DASHBOARD_URL}><span>+</span>습관 추가·지난 날짜 수정은 대시보드에서</a>
-              </>
-            ) : (
-              <div className="empty-garden">
-                <p className="eyebrow">아직 심은 씨앗이 없어요</p>
-                <h2>대시보드 <em>습관 카드</em>에<br />습관을 먼저 추가해 주세요</h2>
-                <p>이 정원은 대시보드의 습관 기록으로 자라요. 같은 기기·같은 브라우저에서 대시보드를 한 번 열어 두면 여기에 바로 나타나요.</p>
-                <a className="primary-button" href={DASHBOARD_URL}>대시보드 열기</a>
-              </div>
-            )
+              )}
+              {(editing || !habits.length) && (
+                <form className="habit-form" onSubmit={submitHabit}>
+                  <input
+                    className="habit-input"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    maxLength={NAME_MAX}
+                    placeholder="새 습관 이름"
+                    aria-label="새 습관 이름"
+                  />
+                  <button type="submit" className="primary-button" disabled={!draft.trim()}><Plus size={13} /> 심기</button>
+                </form>
+              )}
+              {saveFailed && <p className="sync-note">이 브라우저에 저장하지 못했어요 · 창을 닫으면 기록이 사라질 수 있어요</p>}
+              {habits.length > 0 && (
+                <button className="add-habit" onClick={() => setEditing((v) => !v)} aria-pressed={editing}>
+                  <span>{editing ? <Check size={12} /> : "+"}</span>{editing ? "편집 마치기" : "습관 추가·지우기"}
+                </button>
+              )}
+            </>
           ) : (
             <div className="collection-card">
               <div className="collection-heading"><div className="collection-icon"><Trophy size={19} /></div><span className="collection-count">{unlockedCharacters.length} / {characters.length} 발견</span></div>
               <p className="eyebrow">정원 도감</p>
               <h2>함께 자란 친구들<br /><em>도감에 기록됐어요</em></h2>
-              <p>레벨이 오를수록 새로운 친구가 정원에 찾아와요. 레벨은 대시보드에 쌓인 습관 기록 전체로 계산해요.</p>
+              <p>레벨이 오를수록 새로운 친구가 정원에 찾아와요. 레벨은 쌓인 습관 기록 전체로 계산해요.</p>
               <div className="collection-grid">
                 {characters.map((c) => {
                   const unlocked = c.unlockLevel <= growth.level;

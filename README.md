@@ -1,20 +1,20 @@
-# Habit Sprout — 대시보드 연동판
+# Habit Sprout
 
-`Code/habit-game`(Manus 원본)을 대시보드 습관 기록에 연결해 GitHub Pages에 올릴 수 있게 정리한 버전. 원본 폴더는 참고용으로 그대로 둔다.
+`Code/habit-game`(Manus 원본)을 GitHub Pages에 올릴 수 있게 정리한 독립 습관 게임. 원본 폴더는 참고용으로 그대로 둔다.
 
 - 저장소: `Seong-hoCho/habit-sprout` (공개) — `main`에 push하면 GitHub Actions가 빌드·배포
 - 배포 주소: `https://seong-hocho.github.io/habit-sprout/`
-- 대시보드와 같은 출처라서 localStorage `daily-dashboard-v1`을 그대로 읽고 쓴다.
+- 습관과 체크 기록은 이 브라우저의 localStorage `habit-sprout-v1`에만 저장한다. 다른 앱의 저장소는 읽지도 쓰지도 않는다.
 
 ## 원본에서 바뀐 점
 
 | 항목 | 원본 (Manus) | 지금 |
 |---|---|---|
-| 습관 | 샘플 5개 하드코딩 | 대시보드 `S.habits` (`{id, name, log:{날짜:true}}`) |
-| 저장 | `habit-sprout-save` 별도 키 | 저장 안 함. XP·레벨·연속일은 매번 `log`에서 계산 |
+| 습관 | 샘플 5개 하드코딩 | 게임에서 직접 추가·삭제 (`{id, name, log:{날짜:true}}`) |
+| 저장 | `habit-sprout-save` 별도 키 | `habit-sprout-v1`에 습관과 `log`만. XP·레벨·연속일은 매번 `log`에서 계산 |
 | 체크 | 날짜 없음 → 다음 날에도 안 풀림 | 오늘 날짜 `log[today]`만 토글 |
 | 연속일 | 6으로 고정 | 습관을 하나라도 체크한 날이 이어진 일수 |
-| 동기화 | 없음 | 브리지(scriptUrl) 설정 시 대시보드와 같은 규칙으로 loadState/saveState |
+| 동기화 | 없음 | 없음 (기기·브라우저마다 따로 기록) |
 | 캐릭터 이미지 | `/manus-storage/...` (Manus 안에서만 열림) | 기호로 대체. 이미지를 받으면 `client/public/assets/<id>.png` + `characters.ts`의 `PORTRAIT_IDS`에 추가 |
 | 배경 | Manus 저장소 이미지 | CSS 그라디언트 |
 | 의존성 | shadcn/radix/express 등 60여 개 | react, react-dom, @babylonjs/core, lucide-react |
@@ -29,14 +29,12 @@
 - 도감 해금: Mossy 1 · Bloom 3 · Pebble 5 · Luna 7 · Ember 9
 - 과거 기록도 그대로 XP가 되고, 습관을 지우면 그 습관의 XP도 빠진다
 
-## 쓰기 안전 규칙 (`client/src/game/dashboardStore.ts`)
+## 저장 규칙 (`client/src/game/habitStore.ts`)
 
-- 게임은 **오늘 날짜의 습관 체크만** 바꾼다. 습관 추가·지난 날짜 수정은 대시보드에서
-- 쓸 때 `savedAt`을 갱신한다 (대시보드 `save()`와 동일)
-- 브리지가 있으면: 원격을 먼저 읽고, 원격이 더 최신이면 그 위에 체크를 얹어 로컬·원격 모두 저장
-- 원격을 못 읽으면 **원격을 덮어쓰지 않는다**. 로컬에만 저장하고, 대시보드를 다음에 열 때 올라간다
-- 다른 탭의 대시보드가 바꾸면 `storage` 이벤트로 게임이 따라간다
-- 반대 방향(게임에서 체크 → 열려 있는 대시보드 탭)은 대시보드의 `storage` 리스너가 받는다 (2026-09-23 볼트본에 포함, 대시보드 배포 필요)
+- 체크는 **오늘 날짜만** 토글한다. 지난 날짜는 고치지 않는다
+- 습관 추가·삭제는 '습관 추가·지우기'에서 한다. 지우면 그 습관의 기록과 XP도 빠진다
+- 쓸 때마다 저장소의 최신 값 위에 바꾸고, 같은 게임을 연 다른 탭은 `storage` 이벤트로 따라간다
+- 저장에 실패하면(사생활 보호 창 등) 화면은 그대로 두고 저장하지 못했다고 알린다
 
 ## 명령
 
