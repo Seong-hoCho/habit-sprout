@@ -1,8 +1,7 @@
-/* 성장 규칙 — 전부 대시보드 습관 기록(log)에서 매번 계산한다.
-   XP·레벨·연속일을 따로 저장하지 않으므로 체크를 풀면 자동으로 되돌아가고,
-   다른 기기에서도 같은 기록이면 같은 레벨이 보인다. */
+/* 성장 규칙 — 전부 습관 기록(log)에서 매번 계산한다.
+   XP·레벨·연속일을 따로 저장하지 않으므로 체크를 풀면 자동으로 되돌아간다. */
 
-export type DashHabit = { id: string; name: string; log: Record<string, boolean> };
+export type Habit = { id: string; name: string; log: Record<string, boolean> };
 
 export const XP_PER_CHECK = 20;
 /** 그날 등록된 습관을 모두 체크한 날의 추가 보너스 */
@@ -56,7 +55,7 @@ export function growthFromXp(totalXp: number): Growth {
 }
 
 /** 기록이 있는 모든 날짜별 체크 수 */
-function checksByDay(habits: DashHabit[]) {
+function checksByDay(habits: Habit[]) {
   const map = new Map<string, number>();
   for (const h of habits) {
     for (const [day, on] of Object.entries(h.log || {})) {
@@ -66,7 +65,7 @@ function checksByDay(habits: DashHabit[]) {
   return map;
 }
 
-export function totalXp(habits: DashHabit[]) {
+export function totalXp(habits: Habit[]) {
   if (!habits.length) return 0;
   let xp = 0;
   for (const [, n] of checksByDay(habits)) {
@@ -77,14 +76,14 @@ export function totalXp(habits: DashHabit[]) {
 }
 
 /** 오늘 얻은 XP (오늘 보너스 포함) */
-export function xpOnDay(habits: DashHabit[], day: string) {
+export function xpOnDay(habits: Habit[], day: string) {
   const n = habits.filter((h) => h.log?.[day]).length;
   if (!n) return 0;
   return n * XP_PER_CHECK + (habits.length && n >= habits.length ? PERFECT_DAY_BONUS : 0);
 }
 
 /** 습관을 하나라도 체크한 날이 이어진 일수. 오늘 아직 안 했으면 어제까지로 센다. */
-export function dayStreak(habits: DashHabit[], today: string) {
+export function dayStreak(habits: Habit[], today: string) {
   const days = checksByDay(habits);
   let i = days.has(today) ? 0 : 1;
   let streak = 0;
@@ -95,8 +94,8 @@ export function dayStreak(habits: DashHabit[], today: string) {
   return streak;
 }
 
-/** 습관 하나의 연속일 — 대시보드 streaks()와 같은 규칙 */
-export function habitStreak(h: DashHabit, today: string) {
+/** 습관 하나의 연속일 — 오늘(또는 어제)부터 거꾸로 이어진 일수 */
+export function habitStreak(h: Habit, today: string) {
   let cur = 0;
   for (let i = h.log?.[today] ? 0 : 1; i < 400; i++) {
     if (h.log?.[addDays(today, -i)]) cur++;
@@ -106,7 +105,7 @@ export function habitStreak(h: DashHabit, today: string) {
 }
 
 /** 최근 7일(오늘 포함) 달성률 0~100 */
-export function weekRate(habits: DashHabit[], today: string) {
+export function weekRate(habits: Habit[], today: string) {
   if (!habits.length) return 0;
   let hits = 0;
   for (let i = 0; i < 7; i++) {
@@ -116,6 +115,6 @@ export function weekRate(habits: DashHabit[], today: string) {
   return Math.round((hits / (habits.length * 7)) * 100);
 }
 
-export function totalChecks(habits: DashHabit[]) {
+export function totalChecks(habits: Habit[]) {
   return habits.reduce((s, h) => s + Object.values(h.log || {}).filter(Boolean).length, 0);
 }

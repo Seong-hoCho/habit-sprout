@@ -3,7 +3,6 @@ import path from "node:path";
 import { defineConfig } from "vite";
 
 // GitHub Pages: https://seong-hocho.github.io/habit-sprout/
-// 대시보드(daily-dashboard.html)와 같은 출처라서 localStorage를 공유한다.
 export default defineConfig({
   base: "/habit-sprout/",
   plugins: [react()],
